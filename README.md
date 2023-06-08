@@ -1,6 +1,6 @@
 # amazon-connect-java-cdk
 
-Java AWS CDK application to create Amazon Connect with all recommended configuration.
+Java AWS CDK application to create Amazon Connect with basic configuration.
 
 ## Pre-requisites
 

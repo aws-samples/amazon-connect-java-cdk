@@ -22,6 +22,7 @@ public class AmazonConnectStack extends Stack {
     public AmazonConnectStack(final Construct scope, final String id, final StackProps props) {
         super(scope, id, props);
 
+
         CfnParameter connectInstanceAlias = CfnParameter.Builder.create(this, "connectInstanceAlias")
                 .description("Enter Unique Connect Instance Alias")
                 .defaultValue("connect-"+System.currentTimeMillis())
@@ -47,18 +48,20 @@ public class AmazonConnectStack extends Stack {
 //                .build();
 
 
+        // Amazon Connect Instance
         CfnInstance amazonConnect = CfnInstance.Builder.create(this, "connect-example")
                 .instanceAlias(connectInstanceAlias.getValueAsString())
                 .attributes(CfnInstance.AttributesProperty.builder()
+                        .autoResolveBestVoices(true)
                         .contactflowLogs(true)
                         .contactLens(true)
-                        .autoResolveBestVoices(true)
                         .inboundCalls(true)
                         .outboundCalls(true)
                         .build())
                 .identityManagementType(userMgmtType.getValueAsString())
                 .build();
 
+        // API Call to get Routing Profile ARN
         AwsSdkCall listRoutingProfiles = AwsSdkCall.builder()
                 .service("Connect")
                 .action("listRoutingProfiles")
@@ -75,6 +78,7 @@ public class AmazonConnectStack extends Stack {
 
         String routingProfileARN = awsCustomResourceListRoutingProfiles.getResponseField("RoutingProfileSummaryList.0.Arn");
 
+        // API Call to get Security Profile ARN
         AwsSdkCall listSecurityProfiles = AwsSdkCall.builder()
                 .service("Connect")
                 .action("listSecurityProfiles")
@@ -116,8 +120,8 @@ public class AmazonConnectStack extends Stack {
                 .removalPolicy(RemovalPolicy.DESTROY)
                 .build();
 
-        createS3StorageConfig(amazonConnect, "CALL_RECORDINGS", "/connect/" + amazonConnect.getInstanceAlias() + "/CallRecordings", amazonConnectManagedKeyAlias.getKeyArn(), amazonConnectS3Bucket);
-        createS3StorageConfig(amazonConnect, "CHAT_TRANSCRIPTS", "/connect/" + amazonConnect.getInstanceAlias() + "/ChatTranscripts", amazonConnectManagedKeyAlias.getKeyArn(), amazonConnectS3Bucket);
+        createS3StorageConfig(amazonConnect, "CALL_RECORDINGS", "connect/" + amazonConnect.getInstanceAlias() + "/CallRecordings", amazonConnectManagedKeyAlias.getKeyArn(), amazonConnectS3Bucket);
+        createS3StorageConfig(amazonConnect, "CHAT_TRANSCRIPTS", "connect/" + amazonConnect.getInstanceAlias() + "/ChatTranscripts", amazonConnectManagedKeyAlias.getKeyArn(), amazonConnectS3Bucket);
 //        createS3StorageConfig(amazonConnect, "CONTACT_TRACE_RECORDS", "/connect/" + amazonConnect.getInstanceAlias() + "/ContactTraceRecords", amazonConnectManagedKeyAlias.getKeyArn(), amazonConnectS3Bucket);
 
 
