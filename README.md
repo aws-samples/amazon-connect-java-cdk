@@ -74,12 +74,9 @@ Make sure you are in the right AWS account and region.
 [AWS CloudFormation](https://us-west-2.console.aws.amazon.com/cloudformation/home) will create the below resources.
 ![AWSCloudformation_Resources.png](AWSCloudformation_Resources.png)
 
-Source Bucket and Destination Bucket will be created with unique names.
-
 ## Testing
 
 Validate Amazon Connect Instance is created with all recommended configuration.
-
 
 ## Cleanup
 
