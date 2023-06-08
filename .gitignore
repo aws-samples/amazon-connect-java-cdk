@@ -36,3 +36,7 @@ build/
 
 ### Mac OS ###
 .DS_Store
+/.idea/encodings.xml
+/.idea/misc.xml
+/.idea/uiDesigner.xml
+/.idea/vcs.xml
