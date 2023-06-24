@@ -40,5 +40,9 @@ build/
 /.idea/misc.xml
 /.idea/uiDesigner.xml
 /.idea/vcs.xml
-!/.idea/workspace.xml
 /.idea/workspace.xml
+/.idea/Project.xml
+/.idea/.gitignore
+/.idea/codeStyles/codeStyleConfig.xml
+/.idea/codeStyles/Project.xml
+/.idea/aws.xml
