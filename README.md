@@ -44,33 +44,33 @@ Before getting started, make sure you have the following:
 ## Installation
 
 Clone this repository and navigate to the project directory.
-```
+```shell
 git clone git@ssh.gitlab.aws.dev:aruthan/amazon-connect-java-cdk.git
 cd amazon-connect-java-cdk
 ```
 
 ## Build
 Run below build command from the root directory of the project.
-```
+```shell
 mvn clean install
 ```
 
 ## Deployment
 
 Change to the Infra directory of the project.
-```
+```shell
 cd Infra
 ```
 
 Quick deployment: This will deploy the application with default options for parameters connectInstanceAlias <br>
 Run the below command to deploy the application.
-```
+```shell
 cdk deploy
 ```
 
 Custom deployment: Pass your values to the parameters.<br>
 Run the below command to deploy the application.
-```
+```shell
 cdk deploy --no-previous-parameters --parameters connectInstanceAlias=<Unique Alias>
 ```
 
@@ -87,7 +87,7 @@ Validate Amazon Connect Instance is created from AWS Management Console.
 ## Cleanup
 
 Run the below command to delete the application.
-```
+```shell
 cdk destroy
 ```
 This will delete the provisioned Amazon Connect instance and any related resources from your AWS account.
