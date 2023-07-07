@@ -1,12 +1,17 @@
 package com.amazonaws.cdk;
 
+import io.github.cdklabs.cdknag.AwsSolutionsChecks;
+import io.github.cdklabs.cdknag.NagPackProps;
 import software.amazon.awscdk.App;
+import software.amazon.awscdk.Aspects;
 import software.amazon.awscdk.StackProps;
 
 public class AmazonConnectInfraApp {
     public static void main(final String[] args) {
         App app = new App();
-
+        Aspects.of(app).add(new AwsSolutionsChecks(NagPackProps.builder()
+                .verbose(true)
+                .build()));
         new AmazonConnectStack(app, "AmazonConnectStack", StackProps.builder()
                 // If you don't specify 'env', this stack will be environment-agnostic.
                 // Account/Region-dependent features and context lookups will not work,

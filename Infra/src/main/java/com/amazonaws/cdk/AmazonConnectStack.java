@@ -175,4 +175,27 @@ public class AmazonConnectStack extends Stack {
                 .storageType("S3")
                 .build();
     }
+
+    //CDK NAG Suppression's
+//        NagSuppressions.addResourceSuppressionsByPath(this, "/S3LambdaTranscribeJavaCdkStack/BucketNotificationsHandler050a0587b7544547bf325f094a3db834/Role/Resource",
+//                List.of(NagPackSuppression.builder()
+//                .id("AwsSolutions-IAM4")
+//                                .reason("Internal CDK lambda needed to apply bucket notification configurations")
+//                                .appliesTo(List.of("Policy::arn:<AWS::Partition>:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"))
+//            .build(),
+//                        NagPackSuppression.builder()
+//                                .id("AwsSolutions-IAM5")
+//                                .reason("Internal CDK lambda needed to apply bucket notification configurations")
+//                                .appliesTo(List.of("Resource::*"))
+//            .build()));
+//
+//        NagSuppressions.addStackSuppressions(this, List.of(NagPackSuppression.builder()
+//                .id("AwsSolutions-IAM5")
+//                .reason("The IAM entity in this example contain wildcard permissions. In a real world production workload it is recommended adhering to AWS security best practices regarding least-privilege permissions (https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html#grant-least-privilege)")
+//                .build()));
+//
+//        NagSuppressions.addStackSuppressions(this, List.of(NagPackSuppression.builder()
+//                .id("AwsSolutions-L1")
+//                .reason("Java 11 is LTS version")
+//                .build()));
 }
