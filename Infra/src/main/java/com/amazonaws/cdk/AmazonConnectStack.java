@@ -4,7 +4,7 @@ import software.amazon.awscdk.*;
 import software.amazon.awscdk.customresources.*;
 import software.amazon.awscdk.services.connect.CfnInstance;
 import software.amazon.awscdk.services.connect.CfnInstanceStorageConfig;
-import software.amazon.awscdk.services.connect.CfnUser;
+import software.amazon.awscdk.services.connect.CfnPhoneNumber;
 import software.amazon.awscdk.services.kms.Key;
 import software.amazon.awscdk.services.s3.Bucket;
 import software.constructs.Construct;
@@ -48,6 +48,8 @@ public class AmazonConnectStack extends Stack {
 //                .build();
 
 
+
+
         // Amazon Connect Instance
         CfnInstance amazonConnect = CfnInstance.Builder.create(this, "connect-example")
                 .instanceAlias(connectInstanceAlias.getValueAsString())
@@ -59,6 +61,13 @@ public class AmazonConnectStack extends Stack {
                         .outboundCalls(true)
                         .build())
                 .identityManagementType(userMgmtType.getValueAsString())
+                .build();
+
+        // Claim Phone Number for Amazon Connect Instance
+        CfnPhoneNumber.Builder.create(this, "connect-example-phone-number")
+                .countryCode("US")
+                .targetArn(amazonConnect.getAttrArn())
+                .type("TOLL_FREE")
                 .build();
 
         // API Call to get Routing Profile ARN
@@ -95,25 +104,24 @@ public class AmazonConnectStack extends Stack {
 
         String securityProfileARN = awsCustomResourceListSecurityProfiles.getResponseField("SecurityProfileSummaryList.3.Arn");
 
-        CfnUser amazonAdminUser = CfnUser.Builder.create(this, "connect-example-admin")
-                .username(adminUser.getValueAsString())
-                .password("Password@123")
-                .instanceArn(amazonConnect.getAttrArn())
-                .identityInfo(CfnUser.UserIdentityInfoProperty.builder()
-                        .firstName("Admin")
-                        .lastName("Last")
-                        .build())
-                .phoneConfig(CfnUser.UserPhoneConfigProperty.builder()
-                        .phoneType("SOFT_PHONE")
-                        .build())
-                .routingProfileArn(routingProfileARN)
-                .securityProfileArns(List.of(securityProfileARN))
-                .build();
+//        CfnUser amazonAdminUser = CfnUser.Builder.create(this, "connect-example-admin")
+//                .username(adminUser.getValueAsString())
+//                .password("Password@123")
+//                .instanceArn(amazonConnect.getAttrArn())
+//                .identityInfo(CfnUser.UserIdentityInfoProperty.builder()
+//                        .firstName("Admin")
+//                        .lastName("Last")
+//                        .build())
+//                .phoneConfig(CfnUser.UserPhoneConfigProperty.builder()
+//                        .phoneType("SOFT_PHONE")
+//                        .build())
+//                .routingProfileArn(routingProfileARN)
+//                .securityProfileArns(List.of(securityProfileARN))
+//                .build();
 
         Key amazonConnectManagedKeyAlias = Key.Builder.create(this, "AmazonConnectManagedKeyAlias")
 //                                                      .alias("connect-kms-"+amazonConnect.getAttrId())
                 .build();
-
 
         Bucket amazonConnectS3Bucket = Bucket.Builder.create(this, "amazon-connect-s3-bucket")
                 .bucketName("amazon-connect-" + connectInstanceAlias.getValueAsString())
@@ -122,7 +130,7 @@ public class AmazonConnectStack extends Stack {
 
         createS3StorageConfig(amazonConnect, "CALL_RECORDINGS", "connect/" + amazonConnect.getInstanceAlias() + "/CallRecordings", amazonConnectManagedKeyAlias.getKeyArn(), amazonConnectS3Bucket);
         createS3StorageConfig(amazonConnect, "CHAT_TRANSCRIPTS", "connect/" + amazonConnect.getInstanceAlias() + "/ChatTranscripts", amazonConnectManagedKeyAlias.getKeyArn(), amazonConnectS3Bucket);
-//        createS3StorageConfig(amazonConnect, "CONTACT_TRACE_RECORDS", "/connect/" + amazonConnect.getInstanceAlias() + "/ContactTraceRecords", amazonConnectManagedKeyAlias.getKeyArn(), amazonConnectS3Bucket);
+        createS3StorageConfig(amazonConnect, "SCHEDULED_REPORTS", "connect/" + amazonConnect.getInstanceAlias() + "/Reports", amazonConnectManagedKeyAlias.getKeyArn(), amazonConnectS3Bucket);
 
 
         CfnOutput.Builder.create(this, "connect-arn")
