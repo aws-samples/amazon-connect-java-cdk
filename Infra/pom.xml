@@ -3,7 +3,7 @@
          xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.myorg</groupId>
+    <groupId>com.amazonaws.cdk</groupId>
     <artifactId>infra</artifactId>
     <version>0.1</version>
 
@@ -56,6 +56,11 @@
           <artifactId>junit-jupiter</artifactId>
           <version>${junit.version}</version>
           <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.github.cdklabs</groupId>
+            <artifactId>cdknag</artifactId>
+            <version>2.27.52</version>
         </dependency>
     </dependencies>
 </project>
