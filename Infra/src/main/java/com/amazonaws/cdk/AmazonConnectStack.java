@@ -1,12 +1,18 @@
 package com.amazonaws.cdk;
 
+
+import io.github.cdklabs.cdknag.NagPackSuppression;
+import io.github.cdklabs.cdknag.NagSuppressions;
 import software.amazon.awscdk.*;
 import software.amazon.awscdk.customresources.*;
 import software.amazon.awscdk.services.connect.CfnInstance;
 import software.amazon.awscdk.services.connect.CfnInstanceStorageConfig;
 import software.amazon.awscdk.services.connect.CfnPhoneNumber;
+import software.amazon.awscdk.services.connect.CfnUser;
 import software.amazon.awscdk.services.kms.Key;
+import software.amazon.awscdk.services.s3.BlockPublicAccess;
 import software.amazon.awscdk.services.s3.Bucket;
+import software.amazon.awscdk.services.s3.BucketEncryption;
 import software.constructs.Construct;
 
 import java.util.List;
@@ -25,7 +31,7 @@ public class AmazonConnectStack extends Stack {
 
         CfnParameter connectInstanceAlias = CfnParameter.Builder.create(this, "connectInstanceAlias")
                 .description("Enter Unique Connect Instance Alias")
-                .defaultValue("connect-"+System.currentTimeMillis())
+                .defaultValue("connect-" + System.currentTimeMillis())
                 .type("String")
                 .build();
 
@@ -36,18 +42,24 @@ public class AmazonConnectStack extends Stack {
                 .allowedValues(List.of("SAML", "CONNECT_MANAGED"))
                 .build();
 
-        CfnParameter adminUser = CfnParameter.Builder.create(this, "connectAdminUserEmailId")
-                .description("Enter Connect Admin User Email Id")
-                .defaultValue("aruthan@amazon.com")
-                .type("String")
+        // Logging S3 Bucket's KMS Key
+        Key loggingBucketKey = Key.Builder.create(this, "LoggingBucketKey")
+                .alias("LoggingBucketKey4Connect")
+                .enableKeyRotation(true)
+                .pendingWindow(Duration.days(7))
+                .removalPolicy(RemovalPolicy.DESTROY)
                 .build();
 
-//        CfnParameter samlData = CfnParameter.Builder.create(this, "Identity SAML")
-//                .description("SAML 2.0 XML Data")
-//                .type("String")
-//                .build();
-
-
+        // Logging S3 Bucket
+        Bucket loggingBucket = Bucket.Builder.create(this, "LoggingBucket")
+                .enforceSsl(true)
+                .encryption(BucketEncryption.KMS)
+                .encryptionKey(loggingBucketKey)
+                .blockPublicAccess(BlockPublicAccess.BLOCK_ALL)
+                .versioned(true)
+                .removalPolicy(RemovalPolicy.DESTROY)
+                .autoDeleteObjects(true)
+                .build();
 
 
         // Amazon Connect Instance
@@ -81,7 +93,8 @@ public class AmazonConnectStack extends Stack {
         AwsCustomResource awsCustomResourceListRoutingProfiles = AwsCustomResource.Builder.create(this, "CustomProviderListRoutingProfiles ")
                 .onCreate(listRoutingProfiles)
                 .policy(AwsCustomResourcePolicy.fromSdkCalls(SdkCallsPolicyOptions.builder()
-                        .resources(AwsCustomResourcePolicy.ANY_RESOURCE)
+                        // arn:aws:connect:{Region}:{Account}:instance/{InstanceId}
+                        .resources(List.of("arn:aws:connect:" + getRegion() + ":" + getAccount() + ":instance/" + amazonConnect.getAttrId()))
                         .build()))
                 .build();
 
@@ -98,34 +111,51 @@ public class AmazonConnectStack extends Stack {
         AwsCustomResource awsCustomResourceListSecurityProfiles = AwsCustomResource.Builder.create(this, "CustomProviderListSecurityProfiles")
                 .onCreate(listSecurityProfiles)
                 .policy(AwsCustomResourcePolicy.fromSdkCalls(SdkCallsPolicyOptions.builder()
-                        .resources(AwsCustomResourcePolicy.ANY_RESOURCE)
+                        // arn:aws:connect:{Region}:{Account}:instance/{InstanceId}
+                        .resources(List.of("arn:aws:connect:" + getRegion() + ":" + getAccount() + ":instance/" + amazonConnect.getAttrId()))
                         .build()))
                 .build();
 
         String securityProfileARN = awsCustomResourceListSecurityProfiles.getResponseField("SecurityProfileSummaryList.3.Arn");
 
-//        CfnUser amazonAdminUser = CfnUser.Builder.create(this, "connect-example-admin")
-//                .username(adminUser.getValueAsString())
-//                .password("Password@123")
-//                .instanceArn(amazonConnect.getAttrArn())
-//                .identityInfo(CfnUser.UserIdentityInfoProperty.builder()
-//                        .firstName("Admin")
-//                        .lastName("Last")
-//                        .build())
-//                .phoneConfig(CfnUser.UserPhoneConfigProperty.builder()
-//                        .phoneType("SOFT_PHONE")
-//                        .build())
-//                .routingProfileArn(routingProfileARN)
-//                .securityProfileArns(List.of(securityProfileARN))
-//                .build();
-
-        Key amazonConnectManagedKeyAlias = Key.Builder.create(this, "AmazonConnectManagedKeyAlias")
-//                                                      .alias("connect-kms-"+amazonConnect.getAttrId())
+        CfnUser amazonTestUser = CfnUser.Builder.create(this, "connect-example-admin")
+                .username("testuser@email.com")
+                .password("Password@123")
+                // Attaching this User with the Amazon Connect Instance using ARN
+                .instanceArn(amazonConnect.getAttrArn())
+                .identityInfo(CfnUser.UserIdentityInfoProperty.builder()
+                        .firstName("Test")
+                        .lastName("User")
+                        .build())
+                .phoneConfig(CfnUser.UserPhoneConfigProperty.builder()
+                        .phoneType("SOFT_PHONE")
+                        .build())
+                .routingProfileArn(routingProfileARN)
+                .securityProfileArns(List.of(securityProfileARN))
                 .build();
 
+        // KMS Key for Amazon Connect Encryption
+        Key amazonConnectManagedKeyAlias = Key.Builder.create(this, "AmazonConnectManagedKeyAlias")
+                .alias("AmazonConnectKMSKey")
+                .enableKeyRotation(true)
+                .pendingWindow(Duration.days(7))
+                .removalPolicy(RemovalPolicy.DESTROY)
+                .build();
+
+
+        // Amazon Connect S3 Bucket
         Bucket amazonConnectS3Bucket = Bucket.Builder.create(this, "amazon-connect-s3-bucket")
                 .bucketName("amazon-connect-" + connectInstanceAlias.getValueAsString())
+                .enforceSsl(true)
+                .encryption(BucketEncryption.KMS)
+                .encryptionKey(amazonConnectManagedKeyAlias)
+                .blockPublicAccess(BlockPublicAccess.BLOCK_ALL)
+                .versioned(true)
+                .serverAccessLogsBucket(loggingBucket)
+                .serverAccessLogsPrefix("connectBucket/")
+                // Below 2 options can be ignored for Prod Amazon Connect Instance.
                 .removalPolicy(RemovalPolicy.DESTROY)
+                .autoDeleteObjects(true)
                 .build();
 
         createS3StorageConfig(amazonConnect, "CALL_RECORDINGS", "connect/" + amazonConnect.getInstanceAlias() + "/CallRecordings", amazonConnectManagedKeyAlias.getKeyArn(), amazonConnectS3Bucket);
@@ -158,6 +188,30 @@ public class AmazonConnectStack extends Stack {
                 .value(amazonConnect.getIdentityManagementType())
                 .build();
 
+
+        //CDK NAG Suppression's
+        NagSuppressions.addResourceSuppressionsByPath(this, "/AmazonConnectStack/AWS679f53fac002430cb0da5b7982bd2287/ServiceRole/Resource",
+                List.of(NagPackSuppression.builder()
+                                .id("AwsSolutions-IAM4")
+                                .reason("Internal CDK lambda needed to apply bucket notification configurations")
+                                .appliesTo(List.of("Policy::arn:<AWS::Partition>:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"))
+                                .build(),
+                        NagPackSuppression.builder()
+                                .id("AwsSolutions-IAM5")
+                                .reason("Internal CDK lambda needed to apply bucket notification configurations")
+                                .appliesTo(List.of("Resource::*"))
+                                .build()));
+
+//        NagSuppressions.addStackSuppressions(this, List.of(NagPackSuppression.builder()
+//                .id("AwsSolutions-IAM5")
+//                .reason("The IAM entity in this example contain wildcard permissions. In a real world production workload it is recommended adhering to AWS security best practices regarding least-privilege permissions (https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html#grant-least-privilege)")
+//                .build()));
+//
+//        NagSuppressions.addStackSuppressions(this, List.of(NagPackSuppression.builder()
+//                .id("AwsSolutions-L1")
+//                .reason("Java 11 is LTS version")
+//                .build()));
+
     }
 
     private void createS3StorageConfig(CfnInstance amazonConnect, String resourceType, String prefix, String encryptionKeyARN, Bucket amazonConnectS3Bucket) {
@@ -175,27 +229,4 @@ public class AmazonConnectStack extends Stack {
                 .storageType("S3")
                 .build();
     }
-
-    //CDK NAG Suppression's
-//        NagSuppressions.addResourceSuppressionsByPath(this, "/S3LambdaTranscribeJavaCdkStack/BucketNotificationsHandler050a0587b7544547bf325f094a3db834/Role/Resource",
-//                List.of(NagPackSuppression.builder()
-//                .id("AwsSolutions-IAM4")
-//                                .reason("Internal CDK lambda needed to apply bucket notification configurations")
-//                                .appliesTo(List.of("Policy::arn:<AWS::Partition>:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"))
-//            .build(),
-//                        NagPackSuppression.builder()
-//                                .id("AwsSolutions-IAM5")
-//                                .reason("Internal CDK lambda needed to apply bucket notification configurations")
-//                                .appliesTo(List.of("Resource::*"))
-//            .build()));
-//
-//        NagSuppressions.addStackSuppressions(this, List.of(NagPackSuppression.builder()
-//                .id("AwsSolutions-IAM5")
-//                .reason("The IAM entity in this example contain wildcard permissions. In a real world production workload it is recommended adhering to AWS security best practices regarding least-privilege permissions (https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html#grant-least-privilege)")
-//                .build()));
-//
-//        NagSuppressions.addStackSuppressions(this, List.of(NagPackSuppression.builder()
-//                .id("AwsSolutions-L1")
-//                .reason("Java 11 is LTS version")
-//                .build()));
 }

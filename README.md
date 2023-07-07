@@ -2,6 +2,10 @@
 
 This repository provides an example of deploying an Amazon Connect instance using the AWS Cloud Development Kit (CDK) and Java. Amazon Connect is a cloud-based contact center service provided by Amazon Web Services (AWS). With the help of CDK, you can provision and manage your Amazon Connect resources using infrastructure-as-code principles.
 
+## Architecture
+
+![amazon-connect-java-cdk.drawio.png](amazon-connect-java-cdk.drawio.png)
+
 ## Pre-requisites
 
 Before getting started, make sure you have the following:
