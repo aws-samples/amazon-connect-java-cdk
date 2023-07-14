@@ -81,7 +81,8 @@ cdk deploy --no-previous-parameters --parameters connectInstanceAlias=<Unique Al
 ## Verify
 Make sure you are in the right AWS account and region.
 
-[AWS CloudFormation](https://us-west-2.console.aws.amazon.com/cloudformation/home) will create similar to below resources.
+[AWS CloudFormation](https://us-west-2.console.aws.amazon.com/cloudformation/home) will create similar to below resources 
+<br> Note: Not all the resources are shown in the screenshot below.
 ![AWSCloudformation_Resources.png](AWSCloudformation_Resources.png)
 
 ## Testing
