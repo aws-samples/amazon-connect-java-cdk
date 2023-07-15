@@ -49,7 +49,7 @@ Before getting started, make sure you have the following:
 
 Clone this repository and navigate to the project directory.
 ```shell
-git clone git@ssh.gitlab.aws.dev:aruthan/amazon-connect-java-cdk.git
+git clone https://github.com/aws-samples/amazon-connect-java-cdk.git
 cd amazon-connect-java-cdk
 ```
 
