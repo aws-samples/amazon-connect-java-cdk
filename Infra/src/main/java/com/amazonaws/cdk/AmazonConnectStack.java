@@ -10,16 +10,14 @@ import io.github.cdklabs.cdknag.NagPackSuppression;
 import io.github.cdklabs.cdknag.NagSuppressions;
 import software.amazon.awscdk.*;
 import software.amazon.awscdk.customresources.*;
-import software.amazon.awscdk.services.connect.CfnInstance;
-import software.amazon.awscdk.services.connect.CfnInstanceStorageConfig;
-import software.amazon.awscdk.services.connect.CfnPhoneNumber;
-import software.amazon.awscdk.services.connect.CfnUser;
+import software.amazon.awscdk.services.connect.*;
 import software.amazon.awscdk.services.kms.Key;
 import software.amazon.awscdk.services.s3.BlockPublicAccess;
 import software.amazon.awscdk.services.s3.Bucket;
 import software.amazon.awscdk.services.s3.BucketEncryption;
 import software.constructs.Construct;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 // import software.amazon.awscdk.Duration;
@@ -78,13 +76,6 @@ public class AmazonConnectStack extends Stack {
                         .outboundCalls(true)
                         .build())
                 .identityManagementType(userMgmtType.getValueAsString())
-                .build();
-
-        // Claim Phone Number for Amazon Connect Instance
-        CfnPhoneNumber.Builder.create(this, "connect-example-phone-number")
-                .countryCode("US")
-                .targetArn(amazonConnect.getAttrArn())
-                .type("TOLL_FREE")
                 .build();
 
         // API Call to get Routing Profile ARN
@@ -166,6 +157,75 @@ public class AmazonConnectStack extends Stack {
         createS3StorageConfig(amazonConnect, "CALL_RECORDINGS", "connect/" + amazonConnect.getInstanceAlias() + "/CallRecordings", amazonConnectManagedKeyAlias.getKeyArn(), amazonConnectS3Bucket);
         createS3StorageConfig(amazonConnect, "CHAT_TRANSCRIPTS", "connect/" + amazonConnect.getInstanceAlias() + "/ChatTranscripts", amazonConnectManagedKeyAlias.getKeyArn(), amazonConnectS3Bucket);
         createS3StorageConfig(amazonConnect, "SCHEDULED_REPORTS", "connect/" + amazonConnect.getInstanceAlias() + "/Reports", amazonConnectManagedKeyAlias.getKeyArn(), amazonConnectS3Bucket);
+
+        // Claim Phone Number for Amazon Connect Instance
+        CfnPhoneNumber cfnPhoneNumber = CfnPhoneNumber.Builder.create(this, "connect-example-phone-number")
+                .countryCode("US")
+                .targetArn(amazonConnect.getAttrArn())
+                .type("TOLL_FREE")
+                .build();
+
+        // Create Hours of Operation Config for Escalation Queue from 8am to 5pm
+        ArrayList<CfnHoursOfOperation.HoursOfOperationConfigProperty> dayConfigs = new ArrayList<>();
+        List.of("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY").forEach(day -> {
+            dayConfigs.add(CfnHoursOfOperation.HoursOfOperationConfigProperty.builder()
+                    .day(day)
+                    .startTime(CfnHoursOfOperation.HoursOfOperationTimeSliceProperty.builder()
+                            .hours(8)
+                            .minutes(0)
+                            .build())
+                    .endTime(CfnHoursOfOperation.HoursOfOperationTimeSliceProperty.builder()
+                            .hours(17)
+                            .minutes(0)
+                            .build())
+                    .build());
+        });
+
+        // Create Hours of Operation
+        CfnHoursOfOperation cfnHoursOfOperation = CfnHoursOfOperation.Builder.create(this, "amazon-connect-hours-of-operation")
+                .name("Escalation Hours of Operation")
+                .description("This Hours of Operation is used for Escalation and open weekdays from 8am to 5pm")
+                .instanceArn(amazonConnect.getAttrArn())
+                .timeZone("US/Pacific")
+                .config(dayConfigs)
+                .build();
+
+        // Amazon Connect Create new Queue
+        CfnQueue escalationQueue = CfnQueue.Builder.create(this, "amazon-connect-escalation-queue")
+                .description("This Queue is used for Escalation")
+                .instanceArn(amazonConnect.getAttrArn())
+                .name("EscalationQueue")
+                .outboundCallerConfig(CfnQueue.OutboundCallerConfigProperty.builder()
+                        .outboundCallerIdName("AnyCompanyPrioritySupport")
+                        .outboundCallerIdNumberArn(cfnPhoneNumber.getAttrPhoneNumberArn())
+                        .build())
+                .hoursOfOperationArn(cfnHoursOfOperation.getAttrHoursOfOperationArn())
+                .build();
+
+        // Amazon Connect Create new Routing Profile
+        CfnRoutingProfile.Builder.create(this, "amazon-connect-routing-profile")
+                .description("This Routing Profile is used for Escalation")
+                .instanceArn(amazonConnect.getAttrArn())
+                .name("EscalationRoutingProfile")
+                .defaultOutboundQueueArn(escalationQueue.getAttrQueueArn())
+                .queueConfigs(List.of(CfnRoutingProfile.RoutingProfileQueueConfigProperty.builder()
+                        .priority(1)
+                        .queueReference(CfnRoutingProfile.RoutingProfileQueueReferenceProperty.builder()
+                                .queueArn(escalationQueue.getAttrQueueArn())
+                                .channel("VOICE")
+                                .build())
+                        .delay(0)
+                        .build()))
+                .mediaConcurrencies(List.of(
+                        CfnRoutingProfile.MediaConcurrencyProperty.builder()
+                                .channel("VOICE")
+                                .concurrency(1)
+                                .build(),
+                        CfnRoutingProfile.MediaConcurrencyProperty.builder()
+                                .channel("CHAT")
+                                .concurrency(3)
+                                .build()))
+                .build();
 
 
         CfnOutput.Builder.create(this, "connect-arn")

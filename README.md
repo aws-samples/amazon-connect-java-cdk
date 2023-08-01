@@ -12,23 +12,24 @@ Before getting started, make sure you have the following:
 
 - AWS Account
 - Java Development Kit (JDK) installed on your local machine
-  - Java 11 or later
+  - Java 11 or later. If missing install Amazon Corretto Java 11 from [here](https://docs.aws.amazon.com/corretto/latest/corretto-11-ug/what-is-corretto-11.html).
     ```shell
     java -version
     ```
     
-  - Maven 3.0 or later
+  - Maven 3.8 or later. If missing install Maven from [here](https://maven.apache.org/download.cgi).
+  - Note: Java version showed in the below output should be 11 or later.
     ```shell
     mvn -version
     ```
 
 - AWS CLI configured with valid credentials
-  - AWS CLI
+  - AWS CLI. If missing install AWS CLI from [here](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html).
     ```shell
     aws --version
     ```
 - Node.js and npm installed (required for CDK)
-  - Node.js 18.x or later
+  - Node.js 18.x or later. If missing install Node.js from [here](https://nodejs.org/en/download/).
     ```shell
     node -v
     ```
@@ -149,3 +150,73 @@ Refer to `AmazonConnectStack.java` for full stack code
         String routingProfileARN = awsCustomResourceListRoutingProfiles.getResponseField("RoutingProfileSummaryList.0.Arn");
 ```
 
+#### Create Amazon Connect Hours of Operation:
+```
+        // Create Hours of Operation Config for Escalation Queue from 8am to 5pm
+        ArrayList<CfnHoursOfOperation.HoursOfOperationConfigProperty> dayConfigs = new ArrayList<>();
+        List.of("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY").forEach(day -> {
+            dayConfigs.add(CfnHoursOfOperation.HoursOfOperationConfigProperty.builder()
+                    .day(day)
+                    .startTime(CfnHoursOfOperation.HoursOfOperationTimeSliceProperty.builder()
+                            .hours(8)
+                            .minutes(0)
+                            .build())
+                    .endTime(CfnHoursOfOperation.HoursOfOperationTimeSliceProperty.builder()
+                            .hours(17)
+                            .minutes(0)
+                            .build())
+                    .build());
+        });
+
+        // Create Hours of Operation
+        CfnHoursOfOperation cfnHoursOfOperation = CfnHoursOfOperation.Builder.create(this, "amazon-connect-hours-of-operation")
+                .name("Escalation Hours of Operation")
+                .description("This Hours of Operation is used for Escalation and open weekdays from 8am to 5pm")
+                .instanceArn(amazonConnect.getAttrArn())
+                .timeZone("US/Pacific")
+                .config(dayConfigs)
+                .build();
+```
+
+#### Create Amazon Connect Queue:
+```
+        // Amazon Connect Create new Queue
+        CfnQueue escalationQueue = CfnQueue.Builder.create(this, "amazon-connect-escalation-queue")
+                .description("This Queue is used for Escalation")
+                .instanceArn(amazonConnect.getAttrArn())
+                .name("EscalationQueue")
+                .outboundCallerConfig(CfnQueue.OutboundCallerConfigProperty.builder()
+                        .outboundCallerIdName("AnyCompanyPrioritySupport")
+                        .outboundCallerIdNumberArn(cfnPhoneNumber.getAttrPhoneNumberArn())
+                        .build())
+                .hoursOfOperationArn(cfnHoursOfOperation.getAttrHoursOfOperationArn())
+                .build();
+```
+
+#### Create Amazon Connect Routing Profile:
+```
+        // Amazon Connect Create new Routing Profile
+        CfnRoutingProfile.Builder.create(this, "amazon-connect-routing-profile")
+                .description("This Routing Profile is used for Escalation")
+                .instanceArn(amazonConnect.getAttrArn())
+                .name("EscalationRoutingProfile")
+                .defaultOutboundQueueArn(escalationQueue.getAttrQueueArn())
+                .queueConfigs(List.of(CfnRoutingProfile.RoutingProfileQueueConfigProperty.builder()
+                        .priority(1)
+                        .queueReference(CfnRoutingProfile.RoutingProfileQueueReferenceProperty.builder()
+                                .queueArn(escalationQueue.getAttrQueueArn())
+                                .channel("VOICE")
+                                .build())
+                        .delay(0)
+                        .build()))
+                .mediaConcurrencies(List.of(
+                        CfnRoutingProfile.MediaConcurrencyProperty.builder()
+                                .channel("VOICE")
+                                .concurrency(1)
+                                .build(),
+                        CfnRoutingProfile.MediaConcurrencyProperty.builder()
+                                .channel("CHAT")
+                                .concurrency(3)
+                                .build()))
+                .build();
+```
